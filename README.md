@@ -6,7 +6,7 @@ A simple proof of work algorithm using the Blake3 cryptographic hash function.
 let cost = 22;
 let bytes = b"Hello, world!";
 let meter = 10000000;
-let nonce = proof_of_work::single_threaded(bytes, cost, meter);
+let nonce = proof_of_work::search(bytes, cost, meter);
 assert!(proof_of_work::verify(bytes, nonce, cost));
 ```
 
