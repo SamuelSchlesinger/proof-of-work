@@ -33,7 +33,7 @@ impl From<rand::Error> for Error {
 /// zeros as the `cost`. If we try more than `meter` nonces, we return
 /// `Error::MeterOverdrawn`, and if the random generator fails we return `Error::Rand`
 /// with whatever error caused the dysfunction.
-pub fn single_threaded(bytes: &[u8], cost: u32, meter: u32) -> Result<[u8; NONCE_SIZE], Error> {
+pub fn search(bytes: &[u8], cost: u32, meter: u32) -> Result<[u8; NONCE_SIZE], Error> {
     use rand::Fill;
     let mut rng = rand::thread_rng();
     let mut nonce = [0u8; NONCE_SIZE];
@@ -99,14 +99,14 @@ mod tests {
     }
 
     #[test]
-    fn single_threaded_works() -> Result<(), Error> {
+    fn search_works() -> Result<(), Error> {
         let cost = 20;
         let meter = 100000000;
         let bytes = b"124124125124214121";
-        let nonce = single_threaded(bytes, cost, meter)?;
+        let nonce = search(bytes, cost, meter)?;
         assert!(satisfies(bytes, nonce, cost));
         for _i in 1..5 {
-            let nonce = single_threaded(bytes, cost, meter)?;
+            let nonce = search(bytes, cost, meter)?;
             assert!(satisfies(bytes, nonce, cost));
         }
         Ok(())

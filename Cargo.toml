@@ -2,7 +2,7 @@
 name = "blake3-proof-of-work"
 description = "A basic proof of work scheme using the blake3 hash function"
 license = "MIT"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 keywords = ["crypto", "proof-of-work", "cryptography"]
 categories = ["cryptography"]
