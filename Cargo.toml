@@ -1,7 +1,12 @@
 [package]
 name = "blake3-proof-of-work"
+description = "A basic proof of work scheme using the blake3 hash function"
+license = "MIT"
 version = "0.1.0"
 edition = "2021"
+keywords = ["crypto", "proof-of-work", "cryptography"]
+categories = ["cryptography"]
+repository = "https://github.com/samuelSchlesinger/proof-of-work"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
