@@ -99,7 +99,16 @@ mod tests {
     }
 
     #[test]
-    fn single_threaded_works() {
-        let _nonce = single_threaded(b"124124125124214121", 22, 100000000);
+    fn single_threaded_works() -> Result<(), Error> {
+        let cost = 20;
+        let meter = 100000000;
+        let bytes = b"124124125124214121";
+        let nonce = single_threaded(bytes, cost, meter)?;
+        assert!(satisfies(bytes, nonce, cost));
+        for _i in 1..5 {
+            let nonce = single_threaded(bytes, cost, meter)?;
+            assert!(satisfies(bytes, nonce, cost));
+        }
+        Ok(())
     }
 }
