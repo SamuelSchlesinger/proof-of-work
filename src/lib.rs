@@ -1,59 +1,93 @@
-mod proof_of_work {
-    pub const NONCE_SIZE: usize = 10usize;
+//! # Proof of Work
+//!
+//! A basic proof of work construction using the Blake3 cryptographic
+//! hash function. The problem is, given an array of bytes, to come up
+//! with a nonce of ten bytes such that the hash of these strings
+//! concatenated has cost leading zeros.
 
-    pub fn pow(bytes: &[u8], cost: u32) -> [u8; NONCE_SIZE] {
-        use rand::Fill;
-        let mut rng = rand::thread_rng();
-        let mut nonce = [0u8; NONCE_SIZE];
-        loop {
-            nonce
-                .try_fill(&mut rng)
-                .expect("Should be able to fill nonce with random data");
-            let mut hasher = blake3::Hasher::new();
-            hasher.update(&nonce);
-            hasher.update(bytes);
-            let hash = hasher.finalize();
-            if leading_zeros(hash.as_bytes()) >= cost {
+pub const NONCE_SIZE: usize = 10usize;
+
+/// Errors which can occur in searching for a proof of work.
+#[derive(Debug)]
+pub enum Error {
+    Rand(rand::Error),
+    MeterOverdrawn,
+}
+
+impl From<rand::Error> for Error {
+    fn from(error: rand::Error) -> Error {
+        Error::Rand(error)
+    }
+}
+
+/// A single threaded nonce searcher.
+pub fn single_threaded(bytes: &[u8], cost: u32, meter: u32) -> Result<[u8; NONCE_SIZE], Error> {
+    use rand::Fill;
+    let mut rng = rand::thread_rng();
+    let mut nonce = [0u8; NONCE_SIZE];
+    let mut counter = 0;
+    loop {
+        nonce.try_fill(&mut rng)?;
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(&nonce);
+        hasher.update(bytes);
+        let hash = hasher.finalize();
+        if leading_zeros(hash.as_bytes()) >= cost {
+            break;
+        }
+        counter += 1;
+        if counter > meter {
+            return Err(Error::MeterOverdrawn);
+        }
+    }
+    Ok(nonce)
+}
+
+/// Check if the nonce is a proof of work of sufficient cost for the given bytes.
+pub fn satisfies(bytes: &[u8], nonce: [u8; NONCE_SIZE], cost: u32) -> bool {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(&nonce);
+    hasher.update(bytes);
+    let hash = hasher.finalize();
+    leading_zeros(hash.as_bytes()) >= cost
+}
+
+/// Compute the number of leading zeros of the given byte array.
+pub fn leading_zeros(bytes: &[u8]) -> u32 {
+    let mut count = 0;
+    let mut ptr = bytes;
+    loop {
+        if ptr.len() == 0 {
+            break;
+        } else {
+            let lz = ptr[0].leading_zeros();
+            ptr = &ptr[1..];
+            count += lz;
+            if lz < 8 {
                 break;
             }
         }
-        nonce
     }
-
-    fn leading_zeros(bytes: &[u8]) -> u32 {
-        let mut count = 0;
-        let mut ptr = bytes;
-        loop {
-            if ptr.len() == 0 {
-                break;
-            } else {
-                let lz = ptr[0].leading_zeros();
-                ptr = &ptr[1..];
-                count += lz;
-                if lz < 8 {
-                    break;
-                }
-            }
-        }
-        count
-    }
-
-    #[cfg(test)]
-    #[test]
-    fn leading_zeros_works() {
-        assert_eq!(leading_zeros(b"\x00"), 8);
-        assert_eq!(leading_zeros(b"\x0f"), 4);
-        assert_eq!(leading_zeros(b"\x01"), 7);
-        assert_eq!(leading_zeros(b"\x00\x00"), 16);
-    }
+    count
 }
 
 #[cfg(test)]
 mod tests {
-    use super::proof_of_work::*;
+    use super::*;
+    #[test]
+    fn leading_zeros_works() {
+        // assert_eq!(leading_zeros(b"\x02"), 2);
+        // assert_eq!(leading_zeros(b"\x06"), 3);
+        assert_eq!(leading_zeros(b"\x0f"), 4);
+        // assert_eq!(leading_zeros(b"\x1f"), 5);
+        assert_eq!(leading_zeros(b"\x01"), 7);
+        assert_eq!(leading_zeros(b"\x00"), 8);
+        assert_eq!(leading_zeros(b"\x00\x01"), 15);
+        assert_eq!(leading_zeros(b"\x00\x00"), 16);
+    }
 
     #[test]
-    fn it_works() {
-        println!("{:?}", pow(b"1241", 22));
+    fn single_threaded_works() {
+        let _nonce = single_threaded(b"124124125124214121", 22, 100000000);
     }
 }

@@ -1,5 +1,5 @@
 [package]
-name = "proof-of-work"
+name = "blake3-proof-of-work"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,3 +10,6 @@ version = "1.3.0"
 
 [dependencies.rand]
 version = "0.8.4"
+
+[dependencies.num_cpus]
+version = "1.13.1"
