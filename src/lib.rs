@@ -4,6 +4,11 @@
 //! hash function. The problem is, given an array of bytes, to come up
 //! with a nonce of ten bytes such that the hash of these strings
 //! concatenated has cost leading zeros.
+//!
+//! This crate can be used to increase the cost of using your API without
+//! increasing the cost very much on the server side. Especially if you
+//! have unwanted bots hitting your endpoints constantly, you might want
+//! to do something like this rather than try to identify and stop them.
 
 pub const NONCE_SIZE: usize = 10usize;
 
@@ -20,7 +25,14 @@ impl From<rand::Error> for Error {
     }
 }
 
-/// A single threaded nonce searcher.
+/// # Proof search
+///
+/// A single threaded nonce searcher. Using a thread local RNG, it repeatedly
+/// randomizes a `NONCE_SIZE` size array of bytes, searching for one which,
+/// when concatenated with the `bytes`, has a hash with at least as many leading
+/// zeros as the `cost`. If we try more than `meter` nonces, we return
+/// `Error::MeterOverdrawn`, and if the random generator fails we return `Error::Rand`
+/// with whatever error caused the dysfunction.
 pub fn single_threaded(bytes: &[u8], cost: u32, meter: u32) -> Result<[u8; NONCE_SIZE], Error> {
     use rand::Fill;
     let mut rng = rand::thread_rng();
