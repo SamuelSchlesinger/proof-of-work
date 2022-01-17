@@ -1,7 +1,7 @@
 [package]
 name = "blake3-proof-of-work"
 description = "A basic proof of work scheme using the blake3 hash function"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 version = "0.2.0"
 edition = "2021"
 keywords = ["crypto", "proof-of-work", "cryptography"]

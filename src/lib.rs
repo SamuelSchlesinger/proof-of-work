@@ -1,14 +1,12 @@
 //! # Proof of Work
 //!
-//! A basic proof of work construction using the Blake3 cryptographic
-//! hash function. The problem is, given an array of bytes, to come up
-//! with a nonce of ten bytes such that the hash of these strings
-//! concatenated has cost leading zeros.
+//! The classic proof of work system based on a cryptogarphic hash function,
+//! in this case Blake3. To be explicit, a proof of work for some `bytes : &[u8]`
+//! and `cost : u32` is a `nonce : [u8; NONCE_SIZE]` such that the Blake3
+//! hash of `nonce` appended to `bytes` has at least `cost` leading zeros.
 //!
-//! This crate can be used to increase the cost of using your API without
-//! increasing the cost very much on the server side. Especially if you
-//! have unwanted bots hitting your endpoints constantly, you might want
-//! to do something like this rather than try to identify and stop them.
+//! This crate provides functionality for `search`ing and `verify`ing this
+//! sort of proof of work.
 
 pub const NONCE_SIZE: usize = 10usize;
 
@@ -27,12 +25,14 @@ impl From<rand::Error> for Error {
 
 /// # Proof search
 ///
-/// A single threaded nonce searcher. Using a thread local RNG, it repeatedly
-/// randomizes a `NONCE_SIZE` size array of bytes, searching for one which,
-/// when concatenated with the `bytes`, has a hash with at least as many leading
-/// zeros as the `cost`. If we try more than `meter` nonces, we return
-/// `Error::MeterOverdrawn`, and if the random generator fails we return `Error::Rand`
-/// with whatever error caused the dysfunction.
+/// Searches through random `nonce`s by guessing random length `NONCE_SIZE`
+/// arrays and checking if the hash of the `nonce` appended to `bytes` has a
+/// Blake3 hash with at least `cost` leading zeros. In other words, this
+/// searches for a valid proof of work for the given `bytes` at the given
+/// `cost`.
+///
+/// If we search through `meter` `nonce`s, we return an `Error::MeterOverdrawn`
+/// error.
 pub fn search(bytes: &[u8], cost: u32, meter: u32) -> Result<[u8; NONCE_SIZE], Error> {
     use rand::Fill;
     let mut rng = rand::thread_rng();
@@ -55,8 +55,13 @@ pub fn search(bytes: &[u8], cost: u32, meter: u32) -> Result<[u8; NONCE_SIZE], E
     Ok(nonce)
 }
 
-/// Check if the nonce is a proof of work of sufficient cost for the given bytes.
-pub fn satisfies(bytes: &[u8], nonce: [u8; NONCE_SIZE], cost: u32) -> bool {
+/// # Proof verification
+///
+/// This checks that the hash of the `nonce` appended to the `bytes` has
+/// a Blake3 hash with `cost` or more leading zeros. In other words, it verifies
+/// wheher or not this nonce constitutes a valid proof of work for this cost
+/// and input.
+pub fn verify(bytes: &[u8], nonce: [u8; NONCE_SIZE], cost: u32) -> bool {
     let mut hasher = blake3::Hasher::new();
     hasher.update(&nonce);
     hasher.update(bytes);
@@ -88,14 +93,19 @@ mod tests {
     use super::*;
     #[test]
     fn leading_zeros_works() {
-        // assert_eq!(leading_zeros(b"\x02"), 2);
-        // assert_eq!(leading_zeros(b"\x06"), 3);
+        assert_eq!(leading_zeros(b"\x4f"), 1);
+        assert_eq!(leading_zeros(b"\x2f"), 2);
+        assert_eq!(leading_zeros(b"\x1f"), 3);
         assert_eq!(leading_zeros(b"\x0f"), 4);
-        // assert_eq!(leading_zeros(b"\x1f"), 5);
+        assert_eq!(leading_zeros(b"\x06"), 5);
+        assert_eq!(leading_zeros(b"\x02"), 6);
         assert_eq!(leading_zeros(b"\x01"), 7);
         assert_eq!(leading_zeros(b"\x00"), 8);
+        assert_eq!(leading_zeros(b"\x00\x4f"), 9);
         assert_eq!(leading_zeros(b"\x00\x01"), 15);
         assert_eq!(leading_zeros(b"\x00\x00"), 16);
+        assert_eq!(leading_zeros(&[0; 10000]), 10000 * 8);
+        assert_eq!(leading_zeros(&[255; 10000]), 0);
     }
 
     #[test]
@@ -104,10 +114,10 @@ mod tests {
         let meter = 100000000;
         let bytes = b"124124125124214121";
         let nonce = search(bytes, cost, meter)?;
-        assert!(satisfies(bytes, nonce, cost));
+        assert!(verify(bytes, nonce, cost));
         for _i in 1..5 {
             let nonce = search(bytes, cost, meter)?;
-            assert!(satisfies(bytes, nonce, cost));
+            assert!(verify(bytes, nonce, cost));
         }
         Ok(())
     }
